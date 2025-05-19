@@ -17,11 +17,12 @@ BEGIN;
     CREATE TABLE silver.crm_prd_info (
     prd_id INT,
     prd_key VARCHAR(50),
+    cat_id VARCHAR(50),
     prd_nm VARCHAR(50),
     prd_cost INT,
     prd_line VARCHAR(50),
-    prd_start_dt VARCHAR(50),
-    prd_end_dt VARCHAR(50),
+    prd_start_dt DATE,
+    prd_end_dt DATE,
     dwh_create_date TIMESTAMP DEFAULT NOW()
     );
 
@@ -30,9 +31,9 @@ BEGIN;
     sls_order_nm VARCHAR(50),
     sls_prd_key VARCHAR(50),
     sls_cust_id INT,
-    sls_order_dt VARCHAR(50),
-    sls_ship_dt VARCHAR(50),
-    sls_due_dt VARCHAR(50),
+    sls_order_dt DATE,
+    sls_ship_dt DATE,
+    sls_due_dt DATE,
     sls_sales BIGINT,
     sls_quantity INT,
     sls_price BIGINT,
