@@ -23,13 +23,13 @@ CREATE TABLE IF NOT EXISTS bronze.crm_prd_info (
 CREATE TABLE IF NOT EXISTS bronze.crm_sales_details (
   sls_order_nm VARCHAR(50),
   sls_prd_key VARCHAR(50),
-  sls_cust_id INT,
+  sls_cust_id VARCHAR(50),
   sls_order_dt VARCHAR(50),
   sls_ship_dt VARCHAR(50),
   sls_due_dt VARCHAR(50),
-  sls_sales BIGINT,
-  sls_quantity INT,
-  sls_price BIGINT
+  sls_sales VARCHAR(50),
+  sls_quantity VARCHAR(50),
+  sls_price VARCHAR(50)
 );
 
 CREATE TABLE  IF NOT EXISTS bronze.erp_cust_az12 (
