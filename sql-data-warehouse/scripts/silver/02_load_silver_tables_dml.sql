@@ -1,13 +1,53 @@
+/*====================================================================
+  Defines and immediately runs the procedure **silver.load_silver()**  
+  (PL/pgSQL) that refreshes every table in the Silver layer from the
+  raw Bronze layer.
+
+  ▶  High-level flow inside the procedure
+     1. For each Silver table:
+          • `TRUNCATE … CASCADE`            – wipe previous data, clear FK/view deps
+          • `INSERT INTO … SELECT …`        – load cleansed, typed data from Bronze
+          • `RAISE NOTICE …`                – emit progress messages for logs
+     2. Cleansing rules applied include
+          • De-duplication via `ROW_NUMBER()` (latest row per `cst_id`)
+          • Null/blank fallback to `'n/a'`
+          • Gender and marital-status decoding
+          • Date casting & sanity checks (`YYYYMMDD` ↔ `DATE`, future/ancient cutoff)
+          • Product category/key parsing (`SUBSTRING`, `REPLACE`)
+          • Re-computing sales totals if inconsistent
+     3. Every insert relies on *set-based* SQL—no row-by-row loops.
+
+  ▶  Tables refreshed
+       ─ silver.crm_cust_info
+       ─ silver.crm_prd_info
+       ─ silver.crm_sales_details
+       ─ silver.erp_cust_az12
+       ─ silver.erp_loc_a101
+       ─ silver.erp_px_cat_g1v2
+
+  ▶  Usage
+       • Script creates/updates the procedure with
+             CREATE OR REPLACE PROCEDURE silver.load_silver();
+       • Immediately calls it:
+             CALL silver.load_silver();
+       • Suitable for docker-entrypoint or scheduled ETL runs.
+
+  NOTE
+  • Ensure Bronze layer exists and is populated before calling.
+  • Procedure runs in a single implicit transaction—if any step fails
+    the whole load is rolled back.
+====================================================================*/
+
 \connect bike_sales_data_warehouse;
 
-CREATE OR REPLACE PROCEDURE silver.load_sliver()
+CREATE OR REPLACE PROCEDURE silver.load_silver()
 LANGUAGE plpgsql
 AS $$
   BEGIN
     -- clean and load crm_cust_info table.
     RAISE NOTICE '>> Truncating Table: silver.crm_cust_info';
     TRUNCATE silver.crm_cust_info CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.crm_cust_info';
+    RAISE NOTICE '>> Inserting data into: silver.crm_cust_info';
     INSERT INTO silver.crm_cust_info (
       cst_id,
       cst_key,
@@ -43,7 +83,7 @@ AS $$
       WHEN UPPER(TRIM(cst_gndr)) = 'M' THEN 'Male'
       ELSE 'n/a'
     END cst_gndr,
-    cst_create_date
+    cst_create_date::DATE
     FROM (
       SELECT *, ROW_NUMBER() OVER (PARTITION BY cst_id ORDER BY cst_create_date DESC) AS flag_last
       from bronze.crm_cust_info
@@ -52,7 +92,7 @@ AS $$
     -- Clean and load silver.crm_prd_info.
     RAISE NOTICE '>> Truncating Table: silver.crm_prd_info';
     TRUNCATE silver.crm_prd_info CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.crm_prd_info';
+    RAISE NOTICE '>> Inserting data into: silver.crm_prd_info';
     INSERT INTO silver.crm_prd_info (
       prd_id,
       cat_id,
@@ -88,7 +128,7 @@ AS $$
     -- Clean and load silver.crm_sales_details
     RAISE NOTICE '>> Truncating Table: silver.crm_sales_details';
     TRUNCATE silver.crm_sales_details CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.crm_sales_details';
+    RAISE NOTICE '>> Inserting data into: silver.crm_sales_details';
     INSERT INTO silver.crm_sales_details(
       sls_order_nm,
       sls_prd_key,
@@ -137,7 +177,7 @@ AS $$
     -- load silver.erp_cust_az12
     RAISE NOTICE '>> Truncating Table: silver.erp_cust_az12';
     TRUNCATE silver.erp_cust_az12 CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.erp_cust_az12';
+    RAISE NOTICE '>> Inserting data into: silver.erp_cust_az12';
     INSERT INTO silver.erp_cust_az12(
       cid,
       bdate,
@@ -162,7 +202,7 @@ AS $$
     -- load silver.erp_loc_a101
     RAISE NOTICE '>> Truncating Table: silver.erp_loc_a101';
     TRUNCATE silver.erp_loc_a101 CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.erp_loc_a101';
+    RAISE NOTICE '>> Inserting data into: silver.erp_loc_a101';
     INSERT INTO silver.erp_loc_a101(cid, cntry)
     SELECT 
     REPLACE(cid, '-', '') cid,
@@ -178,7 +218,7 @@ AS $$
     -- load silver.erp_px_cat_g1v2
     RAISE NOTICE '>> Truncating Table: silver.erp_px_cat_g1v2';
     TRUNCATE silver.erp_px_cat_g1v2 CASCADE;
-    RAISE NOTICE '>> Inserting Date into: silver.erp_px_cat_g1v2';
+    RAISE NOTICE '>> Inserting data into: silver.erp_px_cat_g1v2';
     INSERT INTO silver.erp_px_cat_g1v2(id, cat,subcat,maintenance)
 
     SELECT
@@ -189,3 +229,5 @@ AS $$
     FROM bronze.erp_px_cat_g1v2;
 	END;
 $$;
+
+CALL silver.load_silver();
